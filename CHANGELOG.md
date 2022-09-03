@@ -44,12 +44,14 @@
 * [ENHANCEMENT] Ring: DoBatch prioritize 4xx errors when failing. #4783
 * [ENHANCEMENT] Cortex now built with Go 1.18. #4829
 * [ENHANCEMENT] Ingester: Prevent ingesters to become unhealthy during wall replay. #4847
+* [ENHANCEMENT] Compactor: Introduced visit marker file for blocks so blocks are under compaction will not be picked up by another compactor. #4805
 * [FEATURE] Compactor: Added `-compactor.block-files-concurrency` allowing to configure number of go routines for download/upload block files during compaction. #4784
 * [FEATURE] Compactor: Added -compactor.blocks-fetch-concurrency` allowing to configure number of go routines for blocks during compaction. #4787
 * [FEATURE] Compactor: Added configurations for Azure MSI in blocks-storage, ruler-storage and alertmanager-storage. #4818
 * [FEATURE] Ruler: Add support to pass custom implementations of queryable and pusher. #4782
 * [FEATURE] Create OpenTelemetry Bridge for Tracing. Now cortex can send traces to multiple destinations using OTEL Collectors. #4834
 * [FEATURE] Added `-api.http-request-headers-to-log` allowing for the addition of HTTP Headers to logs #4803
+* [FEATURE] Distributor: Added a new limit `-validation.max-labels-size-bytes` allowing to limit the combined size of labels for each timeseries. #4848
 * [BUGFIX] Memberlist: Add join with no retrying when starting service. #4804
 * [BUGFIX] Ruler: Fix /ruler/rule_groups returns YAML with extra fields. #4767
 

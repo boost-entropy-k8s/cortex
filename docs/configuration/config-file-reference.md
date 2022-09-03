@@ -424,6 +424,10 @@ grpc_tls_config:
 # CLI flag: -server.log-source-ips-regex
 [log_source_ips_regex: <string> | default = ""]
 
+# Optionally log requests at info level instead of debug level.
+# CLI flag: -server.log-request-at-info-level-enabled
+[log_request_at_info_level_enabled: <boolean> | default = false]
+
 # Base path to serve all API routes from (e.g. /v1/)
 # CLI flag: -server.path-prefix
 [http_path_prefix: <string> | default = ""]
@@ -2557,6 +2561,11 @@ The `limits_config` configures default and per-tenant limits imposed by Cortex s
 # CLI flag: -validation.max-label-names-per-series
 [max_label_names_per_series: <int> | default = 30]
 
+# Maximum combined size in bytes of all labels and label values accepted for a
+# series. 0 to disable the limit.
+# CLI flag: -validation.max-labels-size-bytes
+[max_labels_size_bytes: <int> | default = 0]
+
 # Maximum length accepted for metric metadata. Metadata refers to Metric Name,
 # HELP and UNIT.
 # CLI flag: -validation.max-metadata-length
@@ -3850,6 +3859,15 @@ sharding_ring:
   # Timeout for waiting on compactor to become ACTIVE in the ring.
   # CLI flag: -compactor.ring.wait-active-instance-timeout
   [wait_active_instance_timeout: <duration> | default = 10m]
+
+# How long block visit marker file should be considered as expired and able to
+# be picked up by compactor again.
+# CLI flag: -compactor.block-visit-marker-timeout
+[block_visit_marker_timeout: <duration> | default = 5m]
+
+# How frequently block visit marker file should be updated duration compaction.
+# CLI flag: -compactor.block-visit-marker-file-update-interval
+[block_visit_marker_file_update_interval: <duration> | default = 1m]
 ```
 
 ### `store_gateway_config`
@@ -4000,7 +4018,7 @@ otel:
 
   # Fraction of traces to be sampled. Fractions >= 1 means sampling if off and
   # everything is traced.
-  # CLI flag: -tracing.otel.sample-ration
+  # CLI flag: -tracing.otel.sample-ratio
   [sample_ratio: <float> | default = 0.001]
 
   # Enable TLS in the GRPC client. This flag needs to be enabled when any other
