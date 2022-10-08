@@ -48,6 +48,7 @@
 * [ENHANCEMENT] Ingester: Prevent ingesters to become unhealthy during wall replay. #4847
 * [ENHANCEMENT] Compactor: Introduced visit marker file for blocks so blocks are under compaction will not be picked up by another compactor. #4805
 * [ENHANCEMENT] Distributor: Add label name to labelValueTooLongError. #4855
+* [ENHANCEMENT] Enhance traces with hostname information. #4898
 * [FEATURE] Compactor: Added `-compactor.block-files-concurrency` allowing to configure number of go routines for download/upload block files during compaction. #4784
 * [FEATURE] Compactor: Added -compactor.blocks-fetch-concurrency` allowing to configure number of go routines for blocks during compaction. #4787
 * [FEATURE] Compactor: Added configurations for Azure MSI in blocks-storage, ruler-storage and alertmanager-storage. #4818
@@ -58,6 +59,7 @@
 * [FEATURE] Storage/Bucket: Added `-*.s3.bucket-lookup-type` allowing to configure the s3 bucket lookup type. #4794
 * [FEATURE] QueryFrontend: Implement experimental vertical sharding at query frontend for range/instant queries. #4863
 * [FEATURE] Querier: Added a new limit `-querier.max-fetched-data-bytes-per-query` allowing to limit the maximum size of all data in bytes that a query can fetch from each ingester and storage. #4854
+* [BUGFIX] Storage/Bucket: Enable AWS SDK for go authentication for s3 to fix IMDSv1 authentication. #4897
 * [BUGFIX] Memberlist: Add join with no retrying when starting service. #4804
 * [BUGFIX] Ruler: Fix /ruler/rule_groups returns YAML with extra fields. #4767
 * [BUGFIX] Respecting `-tracing.otel.sample-ratio` configuration when enabling OpenTelemetry tracing with X-ray. #4862
