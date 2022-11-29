@@ -40,7 +40,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/alertmanager v0.24.0
 	github.com/prometheus/client_golang v1.13.0
-	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/client_model v0.3.0
 	github.com/prometheus/common v0.37.0
 	github.com/prometheus/prometheus v0.39.1
 	github.com/segmentio/fasthash v0.0.0-20180216231524-a72b379d632e
@@ -51,7 +51,7 @@ require (
 	github.com/thanos-io/thanos v0.29.1-0.20221115064008-fe45cfc66b7d
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/weaveworks/common v0.0.0-20220706100410-67d27ed40fae
-	go.etcd.io/etcd/api/v3 v3.5.4
+	go.etcd.io/etcd/api/v3 v3.5.6
 	go.etcd.io/etcd/client/pkg/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.opentelemetry.io/contrib/propagators/aws v1.11.1
