@@ -6,7 +6,7 @@ require (
 	github.com/Masterminds/squirrel v0.0.0-20161115235646-20f192218cf5
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
-	github.com/alicebob/miniredis/v2 v2.23.1
+	github.com/alicebob/miniredis/v2 v2.30.0
 	github.com/armon/go-metrics v0.4.1
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b
 	github.com/cespare/xxhash v1.1.0
@@ -32,7 +32,7 @@ require (
 	github.com/hashicorp/memberlist v0.5.0
 	github.com/json-iterator/go v1.1.12
 	github.com/lib/pq v1.10.7
-	github.com/minio/minio-go/v7 v7.0.45
+	github.com/minio/minio-go/v7 v7.0.46
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/oklog/ulid v1.3.1
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e
