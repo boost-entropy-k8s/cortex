@@ -392,6 +392,7 @@ github.com/golang/groupcache/lru
 github.com/golang/groupcache/singleflight
 # github.com/golang/protobuf v1.5.2
 ## explicit; go 1.9
+github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -791,6 +792,25 @@ github.com/stretchr/objx
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
+# github.com/thanos-community/promql-engine v0.0.0-20230111121531-c293f65f5389
+## explicit; go 1.19
+github.com/thanos-community/promql-engine/api
+github.com/thanos-community/promql-engine/engine
+github.com/thanos-community/promql-engine/execution
+github.com/thanos-community/promql-engine/execution/aggregate
+github.com/thanos-community/promql-engine/execution/binary
+github.com/thanos-community/promql-engine/execution/exchange
+github.com/thanos-community/promql-engine/execution/function
+github.com/thanos-community/promql-engine/execution/model
+github.com/thanos-community/promql-engine/execution/parse
+github.com/thanos-community/promql-engine/execution/remote
+github.com/thanos-community/promql-engine/execution/scan
+github.com/thanos-community/promql-engine/execution/step_invariant
+github.com/thanos-community/promql-engine/execution/storage
+github.com/thanos-community/promql-engine/execution/unary
+github.com/thanos-community/promql-engine/logicalplan
+github.com/thanos-community/promql-engine/query
+github.com/thanos-community/promql-engine/worker
 # github.com/thanos-io/objstore v0.0.0-20221205132204-5aafc0079f06
 ## explicit; go 1.18
 github.com/thanos-io/objstore
@@ -1131,6 +1151,11 @@ golang.org/x/tools/internal/typesinternal
 ## explicit; go 1.17
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
+# gonum.org/v1/gonum v0.12.0
+## explicit; go 1.18
+gonum.org/v1/gonum/floats
+gonum.org/v1/gonum/floats/scalar
+gonum.org/v1/gonum/internal/asm/f64
 # google.golang.org/api v0.102.0
 ## explicit; go 1.19
 google.golang.org/api/googleapi
@@ -1175,8 +1200,8 @@ google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/type/date
 google.golang.org/genproto/googleapis/type/expr
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/grpc v1.51.0 => google.golang.org/grpc v1.45.0
-## explicit; go 1.14
+# google.golang.org/grpc v1.51.0
+## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -1187,6 +1212,7 @@ google.golang.org/grpc/balancer/grpclb/grpc_lb_v1
 google.golang.org/grpc/balancer/grpclb/state
 google.golang.org/grpc/balancer/roundrobin
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
+google.golang.org/grpc/channelz
 google.golang.org/grpc/codes
 google.golang.org/grpc/connectivity
 google.golang.org/grpc/credentials
@@ -1207,6 +1233,7 @@ google.golang.org/grpc/grpclog
 google.golang.org/grpc/health/grpc_health_v1
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
+google.golang.org/grpc/internal/balancer/gracefulswitch
 google.golang.org/grpc/internal/balancerload
 google.golang.org/grpc/internal/binarylog
 google.golang.org/grpc/internal/buffer
@@ -1219,6 +1246,7 @@ google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/grpcutil
 google.golang.org/grpc/internal/metadata
+google.golang.org/grpc/internal/pretty
 google.golang.org/grpc/internal/resolver
 google.golang.org/grpc/internal/resolver/dns
 google.golang.org/grpc/internal/resolver/passthrough
@@ -1295,7 +1323,6 @@ sigs.k8s.io/yaml
 # github.com/gocql/gocql => github.com/grafana/gocql v0.0.0-20200605141915-ba5dc39ece85
 # github.com/bradfitz/gomemcache => github.com/themihai/gomemcache v0.0.0-20180902122335-24332e2d58ab
 # github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.2.5-0.20211201083710-c7bc8e9df94b
-# google.golang.org/grpc => google.golang.org/grpc v1.45.0
 # github.com/vimeo/galaxycache => github.com/thanos-community/galaxycache v0.0.0-20211122094458-3a32041a1f1e
 # github.com/go-openapi/spec => github.com/go-openapi/spec v0.20.6
 # github.com/ionos-cloud/sdk-go/v6 => github.com/ionos-cloud/sdk-go/v6 v6.0.4
