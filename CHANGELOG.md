@@ -2,6 +2,7 @@
 
 ## master / unreleased
 * [CHANGE] Alertmanager: Local file disclosure vulnerability in OpsGenie configuration has been fixed. #5045
+* [CHANGE] Rename oltp_endpoint to otlp_endpoint to match opentelemetry spec and lib name. #5067
 * [CHANGE] Distributor/Ingester: Log warn level on push requests when they have status code 4xx. Do not log if status is 429. #5103
 * [ENHANCEMENT] Update Go version to 1.19.3. #4988
 * [ENHANCEMENT] Querier: limit series query to only ingesters if `start` param is not specified. #4976
@@ -29,6 +30,7 @@
 * [BUGFIX] Fixed ingesters with less tokens stuck in LEAVING. #5061
 * [BUGFIX] Tracing: Fix missing object storage span instrumentation. #5074
 * [BUGFIX] Ingester: Ingesters returning empty response for metadata APIs. #5081
+* [FEATURE] Alertmanager: Add support for time_intervals. #5102
 
 ## 1.14.0 2022-12-02
 
