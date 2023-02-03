@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/prometheus/config"
+
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/gogo/status"
@@ -92,7 +94,8 @@ type Config struct {
 	// Config for metadata purging.
 	MetadataRetainPeriod time.Duration `yaml:"metadata_retain_period"`
 
-	RateUpdatePeriod time.Duration `yaml:"rate_update_period"`
+	RateUpdatePeriod            time.Duration `yaml:"rate_update_period"`
+	UserTSDBConfigsUpdatePeriod time.Duration `yaml:"user_tsdb_configs_update_period"`
 
 	ActiveSeriesMetricsEnabled      bool          `yaml:"active_series_metrics_enabled"`
 	ActiveSeriesMetricsUpdatePeriod time.Duration `yaml:"active_series_metrics_update_period"`
@@ -126,6 +129,7 @@ func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
 	f.DurationVar(&cfg.MetadataRetainPeriod, "ingester.metadata-retain-period", 10*time.Minute, "Period at which metadata we have not seen will remain in memory before being deleted.")
 
 	f.DurationVar(&cfg.RateUpdatePeriod, "ingester.rate-update-period", 15*time.Second, "Period with which to update the per-user ingestion rates.")
+	f.DurationVar(&cfg.UserTSDBConfigsUpdatePeriod, "ingester.user-tsdb-configs-update-period", 15*time.Second, "Period with which to update the per-user tsdb config.")
 	f.BoolVar(&cfg.ActiveSeriesMetricsEnabled, "ingester.active-series-metrics-enabled", true, "Enable tracking of active series and export them as metrics.")
 	f.DurationVar(&cfg.ActiveSeriesMetricsUpdatePeriod, "ingester.active-series-metrics-update-period", 1*time.Minute, "How often to update active series metrics.")
 	f.DurationVar(&cfg.ActiveSeriesMetricsIdleTimeout, "ingester.active-series-metrics-idle-timeout", 10*time.Minute, "After what time a series is considered to be inactive.")
@@ -782,6 +786,9 @@ func (i *Ingester) updateLoop(ctx context.Context) error {
 	rateUpdateTicker := time.NewTicker(i.cfg.RateUpdatePeriod)
 	defer rateUpdateTicker.Stop()
 
+	userTSDBConfigTicker := time.NewTicker(i.cfg.UserTSDBConfigsUpdatePeriod)
+	defer userTSDBConfigTicker.Stop()
+
 	ingestionRateTicker := time.NewTicker(instanceIngestionRateTickInterval)
 	defer ingestionRateTicker.Stop()
 
@@ -812,13 +819,51 @@ func (i *Ingester) updateLoop(ctx context.Context) error {
 
 		case <-activeSeriesTickerChan:
 			i.updateActiveSeries()
-
+		case <-userTSDBConfigTicker.C:
+			i.updateUserTSDBConfigs()
 		case <-ctx.Done():
 			return nil
 		case err := <-i.subservicesWatcher.Chan():
 			return errors.Wrap(err, "ingester subservice failed")
 		}
 	}
+}
+
+func (i *Ingester) updateUserTSDBConfigs() {
+	for _, userID := range i.getTSDBUsers() {
+		userDB := i.getTSDB(userID)
+		if userDB == nil {
+			continue
+		}
+
+		cfg := &config.Config{
+			StorageConfig: config.StorageConfig{
+				ExemplarsConfig: &config.ExemplarsConfig{
+					MaxExemplars: i.getMaxExemplars(userID),
+				},
+			},
+		}
+
+		// This method currently updates the MaxExemplars and OutOfOrderTimeWindow. Invoking this method
+		// with a 0 value of OutOfOrderTimeWindow simply updates Max Exemplars.
+		err := userDB.db.ApplyConfig(cfg)
+		if err != nil {
+			level.Error(logutil.WithUserID(userID, i.logger)).Log("msg", "failed to update user tsdb configuration.")
+		}
+	}
+}
+
+// getMaxExemplars returns the maxExemplars value set in limits config.
+// If limits value is set to zero, it falls back to old configuration
+// in block storage config.
+func (i *Ingester) getMaxExemplars(userID string) int64 {
+	maxExemplarsFromLimits := i.limits.MaxExemplars(userID)
+
+	if maxExemplarsFromLimits == 0 {
+		return int64(i.cfg.BlocksStorageConfig.TSDB.MaxExemplars)
+	}
+
+	return int64(maxExemplarsFromLimits)
 }
 
 func (i *Ingester) updateActiveSeries() {
@@ -1045,7 +1090,8 @@ func (i *Ingester) Push(ctx context.Context, req *cortexpb.WriteRequest) (*corte
 			})
 		}
 
-		if i.cfg.BlocksStorageConfig.TSDB.MaxExemplars > 0 {
+		maxExemplarsForUser := i.getMaxExemplars(userID)
+		if maxExemplarsForUser > 0 {
 			// app.AppendExemplar currently doesn't create the series, it must
 			// already exist.  If it does not then drop.
 			if ref == 0 && len(ts.Exemplars) > 0 {
@@ -1290,48 +1336,15 @@ func (i *Ingester) QueryExemplars(ctx context.Context, req *client.ExemplarQuery
 
 // LabelValues returns all label values that are associated with a given label name.
 func (i *Ingester) LabelValues(ctx context.Context, req *client.LabelValuesRequest) (*client.LabelValuesResponse, error) {
-	if err := i.checkRunning(); err != nil {
-		return nil, err
-	}
-
-	labelName, startTimestampMs, endTimestampMs, matchers, err := client.FromLabelValuesRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	userID, err := tenant.TenantID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	db := i.getTSDB(userID)
-	if db == nil {
-		return &client.LabelValuesResponse{}, nil
-	}
-
-	mint, maxt, err := metadataQueryRange(startTimestampMs, endTimestampMs, db, i.cfg.QueryStoreForLabels, i.cfg.QueryIngestersWithin)
-	if err != nil {
-		return nil, err
-	}
-
-	q, err := db.Querier(ctx, mint, maxt)
-	if err != nil {
-		return nil, err
-	}
-	defer q.Close()
-
-	vals, _, err := q.LabelValues(labelName, matchers...)
-	if err != nil {
-		return nil, err
-	}
-
-	return &client.LabelValuesResponse{
-		LabelValues: vals,
-	}, nil
+	resp, cleanup, err := i.labelsValuesCommon(ctx, req)
+	defer cleanup()
+	return resp, err
 }
 
+// LabelValuesStream returns all label values that are associated with a given label name.
 func (i *Ingester) LabelValuesStream(req *client.LabelValuesRequest, stream client.Ingester_LabelValuesStreamServer) error {
-	resp, err := i.LabelValues(stream.Context(), req)
+	resp, cleanup, err := i.labelsValuesCommon(stream.Context(), req)
+	defer cleanup()
 
 	if err != nil {
 		return err
@@ -1354,46 +1367,65 @@ func (i *Ingester) LabelValuesStream(req *client.LabelValuesRequest, stream clie
 	return nil
 }
 
-// LabelNames return all the label names.
-func (i *Ingester) LabelNames(ctx context.Context, req *client.LabelNamesRequest) (*client.LabelNamesResponse, error) {
+// labelsValuesCommon returns all label values that are associated with a given label name.
+// this should be used by LabelValues and LabelValuesStream
+// the cleanup function should be called in order to close the querier
+func (i *Ingester) labelsValuesCommon(ctx context.Context, req *client.LabelValuesRequest) (*client.LabelValuesResponse, func(), error) {
+	cleanup := func() {}
 	if err := i.checkRunning(); err != nil {
-		return nil, err
+		return nil, cleanup, err
+	}
+
+	labelName, startTimestampMs, endTimestampMs, matchers, err := client.FromLabelValuesRequest(req)
+	if err != nil {
+		return nil, cleanup, err
 	}
 
 	userID, err := tenant.TenantID(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	db := i.getTSDB(userID)
 	if db == nil {
-		return &client.LabelNamesResponse{}, nil
+		return &client.LabelValuesResponse{}, cleanup, nil
 	}
 
-	mint, maxt, err := metadataQueryRange(req.StartTimestampMs, req.EndTimestampMs, db, i.cfg.QueryStoreForLabels, i.cfg.QueryIngestersWithin)
+	mint, maxt, err := metadataQueryRange(startTimestampMs, endTimestampMs, db, i.cfg.QueryStoreForLabels, i.cfg.QueryIngestersWithin)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	q, err := db.Querier(ctx, mint, maxt)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
-	defer q.Close()
 
-	names, _, err := q.LabelNames()
+	cleanup = func() {
+		q.Close()
+	}
+
+	vals, _, err := q.LabelValues(labelName, matchers...)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
-	return &client.LabelNamesResponse{
-		LabelNames: names,
-	}, nil
+	return &client.LabelValuesResponse{
+		LabelValues: vals,
+	}, cleanup, nil
+}
+
+// LabelNames return all the label names.
+func (i *Ingester) LabelNames(ctx context.Context, req *client.LabelNamesRequest) (*client.LabelNamesResponse, error) {
+	resp, cleanup, err := i.labelNamesCommon(ctx, req)
+	defer cleanup()
+	return resp, err
 }
 
 // LabelNamesStream return all the label names.
 func (i *Ingester) LabelNamesStream(req *client.LabelNamesRequest, stream client.Ingester_LabelNamesStreamServer) error {
-	resp, err := i.LabelNames(stream.Context(), req)
+	resp, cleanup, err := i.labelNamesCommon(stream.Context(), req)
+	defer cleanup()
 
 	if err != nil {
 		return err
@@ -1416,38 +1448,118 @@ func (i *Ingester) LabelNamesStream(req *client.LabelNamesRequest, stream client
 	return nil
 }
 
-// MetricsForLabelMatchers returns all the metrics which match a set of matchers.
-func (i *Ingester) MetricsForLabelMatchers(ctx context.Context, req *client.MetricsForLabelMatchersRequest) (*client.MetricsForLabelMatchersResponse, error) {
+// labelNamesCommon return all the label names.
+// this should be used by LabelNames and LabelNamesStream.
+// the cleanup function should be called in order to close the querier
+func (i *Ingester) labelNamesCommon(ctx context.Context, req *client.LabelNamesRequest) (*client.LabelNamesResponse, func(), error) {
+	cleanup := func() {}
 	if err := i.checkRunning(); err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	userID, err := tenant.TenantID(ctx)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	db := i.getTSDB(userID)
 	if db == nil {
-		return &client.MetricsForLabelMatchersResponse{}, nil
+		return &client.LabelNamesResponse{}, cleanup, nil
+	}
+
+	mint, maxt, err := metadataQueryRange(req.StartTimestampMs, req.EndTimestampMs, db, i.cfg.QueryStoreForLabels, i.cfg.QueryIngestersWithin)
+	if err != nil {
+		return nil, cleanup, err
+	}
+
+	q, err := db.Querier(ctx, mint, maxt)
+	if err != nil {
+		return nil, cleanup, err
+	}
+
+	cleanup = func() {
+		q.Close()
+	}
+
+	names, _, err := q.LabelNames()
+	if err != nil {
+		return nil, cleanup, err
+	}
+
+	return &client.LabelNamesResponse{
+		LabelNames: names,
+	}, cleanup, nil
+}
+
+// MetricsForLabelMatchers returns all the metrics which match a set of matchers.
+func (i *Ingester) MetricsForLabelMatchers(ctx context.Context, req *client.MetricsForLabelMatchersRequest) (*client.MetricsForLabelMatchersResponse, error) {
+	result, cleanup, err := i.metricsForLabelMatchersCommon(ctx, req)
+	defer cleanup()
+	return result, err
+}
+
+func (i *Ingester) MetricsForLabelMatchersStream(req *client.MetricsForLabelMatchersRequest, stream client.Ingester_MetricsForLabelMatchersStreamServer) error {
+	result, cleanup, err := i.metricsForLabelMatchersCommon(stream.Context(), req)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(result.Metric); i += metadataStreamBatchSize {
+		j := i + metadataStreamBatchSize
+		if j > len(result.Metric) {
+			j = len(result.Metric)
+		}
+		resp := &client.MetricsForLabelMatchersStreamResponse{
+			Metric: result.Metric[i:j],
+		}
+		err := client.SendMetricsForLabelMatchersStream(stream, resp)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// metricsForLabelMatchersCommon returns all the metrics which match a set of matchers.
+// this should be used by MetricsForLabelMatchers and MetricsForLabelMatchersStream.
+// the cleanup function should be called in order to close the querier
+func (i *Ingester) metricsForLabelMatchersCommon(ctx context.Context, req *client.MetricsForLabelMatchersRequest) (*client.MetricsForLabelMatchersResponse, func(), error) {
+	cleanup := func() {}
+	if err := i.checkRunning(); err != nil {
+		return nil, cleanup, err
+	}
+
+	userID, err := tenant.TenantID(ctx)
+	if err != nil {
+		return nil, cleanup, err
+	}
+
+	db := i.getTSDB(userID)
+	if db == nil {
+		return &client.MetricsForLabelMatchersResponse{}, cleanup, nil
 	}
 
 	// Parse the request
 	_, _, matchersSet, err := client.FromMetricsForLabelMatchersRequest(req)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	mint, maxt, err := metadataQueryRange(req.StartTimestampMs, req.EndTimestampMs, db, i.cfg.QueryStoreForLabels, i.cfg.QueryIngestersWithin)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	q, err := db.Querier(ctx, mint, maxt)
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
-	defer q.Close()
+
+	cleanup = func() {
+		q.Close()
+	}
 
 	// Run a query for each matchers set and collect all the results.
 	var sets []storage.SeriesSet
@@ -1455,7 +1567,7 @@ func (i *Ingester) MetricsForLabelMatchers(ctx context.Context, req *client.Metr
 	for _, matchers := range matchersSet {
 		// Interrupt if the context has been canceled.
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return nil, cleanup, ctx.Err()
 		}
 
 		hints := &storage.SelectHints{
@@ -1477,7 +1589,7 @@ func (i *Ingester) MetricsForLabelMatchers(ctx context.Context, req *client.Metr
 	for mergedSet.Next() {
 		// Interrupt if the context has been canceled.
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return nil, cleanup, ctx.Err()
 		}
 
 		result.Metric = append(result.Metric, &cortexpb.Metric{
@@ -1485,30 +1597,7 @@ func (i *Ingester) MetricsForLabelMatchers(ctx context.Context, req *client.Metr
 		})
 	}
 
-	return result, nil
-}
-
-func (i *Ingester) MetricsForLabelMatchersStream(req *client.MetricsForLabelMatchersRequest, stream client.Ingester_MetricsForLabelMatchersStreamServer) error {
-	result, err := i.MetricsForLabelMatchers(stream.Context(), req)
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < len(result.Metric); i += metadataStreamBatchSize {
-		j := i + metadataStreamBatchSize
-		if j > len(result.Metric) {
-			j = len(result.Metric)
-		}
-		resp := &client.MetricsForLabelMatchersStreamResponse{
-			Metric: result.Metric[i:j],
-		}
-		err := client.SendMetricsForLabelMatchersStream(stream, resp)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return result, cleanup, nil
 }
 
 // MetricsMetadata returns all the metric metadata of a user.
@@ -1834,7 +1923,8 @@ func (i *Ingester) createTSDB(userID string) (*userTSDB, error) {
 	}
 
 	enableExemplars := false
-	if i.cfg.BlocksStorageConfig.TSDB.MaxExemplars > 0 {
+	maxExemplarsForUser := i.getMaxExemplars(userID)
+	if maxExemplarsForUser > 0 {
 		enableExemplars = true
 	}
 	// Create a new user database
@@ -1851,7 +1941,7 @@ func (i *Ingester) createTSDB(userID string) (*userTSDB, error) {
 		BlocksToDelete:                 userDB.blocksToDelete,
 		EnableExemplarStorage:          enableExemplars,
 		IsolationDisabled:              true,
-		MaxExemplars:                   int64(i.cfg.BlocksStorageConfig.TSDB.MaxExemplars),
+		MaxExemplars:                   maxExemplarsForUser,
 		HeadChunksWriteQueueSize:       i.cfg.BlocksStorageConfig.TSDB.HeadChunksWriteQueueSize,
 		EnableMemorySnapshotOnShutdown: i.cfg.BlocksStorageConfig.TSDB.MemorySnapshotOnShutdown,
 	}, nil)

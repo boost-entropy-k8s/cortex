@@ -1,6 +1,7 @@
 # Changelog
 
 ## master / unreleased
+* [CHANGE] Storage: Make Max exemplars config per tenant instead of global configuration. #5016
 * [CHANGE] Alertmanager: Local file disclosure vulnerability in OpsGenie configuration has been fixed. #5045
 * [CHANGE] Rename oltp_endpoint to otlp_endpoint to match opentelemetry spec and lib name. #5067
 * [CHANGE] Distributor/Ingester: Log warn level on push requests when they have status code 4xx. Do not log if status is 429. #5103
@@ -14,6 +15,7 @@
 * [ENHANCEMENT] Ingester: The metadata APIs should honour `querier.query-ingesters-within` when `querier.query-store-for-labels-enabled` is true. #5027
 * [ENHANCEMENT] Query Frontend: Skip instant query roundtripper if sharding is not applicable. #5062
 * [ENHANCEMENT] Push reduce one hash operation of Labels. #4945 #5114
+* [ENHANCEMENT] Alertmanager: Added `-alertmanager.enabled-tenants` and `-alertmanager.disabled-tenants` to explicitly enable or disable alertmanager for specific tenants. #5116
 * [FEATURE] Querier/Query Frontend: support Prometheus /api/v1/status/buildinfo API. #4978
 * [FEATURE] Ingester: Add active series to all_user_stats page. #4972
 * [FEATURE] Ingester: Added `-blocks-storage.tsdb.head-chunks-write-queue-size` allowing to configure the size of the in-memory queue used before flushing chunks to the disk . #5000
@@ -31,6 +33,7 @@
 * [BUGFIX] Fixed ingesters with less tokens stuck in LEAVING. #5061
 * [BUGFIX] Tracing: Fix missing object storage span instrumentation. #5074
 * [BUGFIX] Ingester: Ingesters returning empty response for metadata APIs. #5081
+* [BUGFIX] Ingester: Fix panic when querying metadata from blocks that are being deleted. #5119
 * [FEATURE] Alertmanager: Add support for time_intervals. #5102
 
 ## 1.14.0 2022-12-02

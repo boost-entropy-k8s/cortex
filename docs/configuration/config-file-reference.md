@@ -774,6 +774,10 @@ lifecycler:
 # CLI flag: -ingester.rate-update-period
 [rate_update_period: <duration> | default = 15s]
 
+# Period with which to update the per-user tsdb config.
+# CLI flag: -ingester.user-tsdb-configs-update-period
+[user_tsdb_configs_update_period: <duration> | default = 15s]
+
 # Enable tracking of active series and export them as metrics.
 # CLI flag: -ingester.active-series-metrics-enabled
 [active_series_metrics_enabled: <boolean> | default = true]
@@ -1886,6 +1890,18 @@ alertmanager_client:
 # result in potentially fewer lost silences, and fewer duplicate notifications.
 # CLI flag: -alertmanager.persist-interval
 [persist_interval: <duration> | default = 15m]
+
+# Comma separated list of tenants whose alerts this alertmanager can process. If
+# specified, only these tenants will be handled by alertmanager, otherwise this
+# alertmanager can process alerts from all tenants.
+# CLI flag: -alertmanager.enabled-tenants
+[enabled_tenants: <string> | default = ""]
+
+# Comma separated list of tenants whose alerts this alertmanager cannot process.
+# If specified, a alertmanager that would normally pick the specified tenant(s)
+# for processing will ignore them instead.
+# CLI flag: -alertmanager.disabled-tenants
+[disabled_tenants: <string> | default = ""]
 ```
 
 ### `alertmanager_storage_config`
@@ -2702,6 +2718,12 @@ The `limits_config` configures default and per-tenant limits imposed by Cortex s
 # more effective to use metrics relabeling directly in the Prometheus server,
 # e.g. remote_write.write_relabel_configs.
 [metric_relabel_configs: <relabel_config...> | default = ]
+
+# Enables support for exemplars in TSDB and sets the maximum number that will be
+# stored. less than zero means disabled. If the value is set to zero, cortex
+# will fallback to blocks-storage.tsdb.max-exemplars value.
+# CLI flag: -block-storage.tsdb.max-exemplars
+[max_exemplars: <int> | default = 0]
 
 # The maximum number of series for which a query can fetch samples from each
 # ingester. This limit is enforced only in the ingesters (when querying samples
@@ -3802,7 +3824,9 @@ tsdb:
   # CLI flag: -blocks-storage.tsdb.max-tsdb-opening-concurrency-on-startup
   [max_tsdb_opening_concurrency_on_startup: <int> | default = 10]
 
-  # Enables support for exemplars in TSDB and sets the maximum number that will
+  # Deprecated, use maxExemplars in limits instead. If the MaxExemplars value in
+  # limits is set to zero, cortex will fallback on this value. This setting
+  # enables support for exemplars in TSDB and sets the maximum number that will
   # be stored. 0 or less means disabled.
   # CLI flag: -blocks-storage.tsdb.max-exemplars
   [max_exemplars: <int> | default = 0]
