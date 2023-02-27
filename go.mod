@@ -32,7 +32,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.2
 	github.com/hashicorp/memberlist v0.5.0
 	github.com/json-iterator/go v1.1.12
-	github.com/klauspost/compress v1.15.15
+	github.com/klauspost/compress v1.16.0
 	github.com/lib/pq v1.10.7
 	github.com/minio/minio-go/v7 v7.0.49
 	github.com/mitchellh/go-wordwrap v1.0.1
@@ -50,10 +50,10 @@ require (
 	github.com/segmentio/fasthash v0.0.0-20180216231524-a72b379d632e
 	github.com/sony/gobreaker v0.5.0
 	github.com/spf13/afero v1.9.3
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/thanos-community/promql-engine v0.0.0-20230224075812-ae04bbea7613
 	github.com/thanos-io/objstore v0.0.0-20230201072718-11ffbc490204
-	github.com/thanos-io/thanos v0.29.1-0.20230224131058-fdeea3917591
+	github.com/thanos-io/thanos v0.31.0-rc.0
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/weaveworks/common v0.0.0-20221201103051-7c2720a9024d
 	go.etcd.io/etcd/api/v3 v3.5.7
