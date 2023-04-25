@@ -13,9 +13,8 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 
-	"github.com/thanos-community/promql-engine/internal/prometheus/parser"
-
 	"github.com/thanos-community/promql-engine/execution/parse"
+	"github.com/thanos-community/promql-engine/parser"
 )
 
 var InvalidSample = promql.Sample{T: -1, F: 0}
@@ -198,6 +197,10 @@ var Funcs = map[string]FunctionCall{
 			T:      f.StepTime,
 			F:      f.Samples[len(f.Samples)-1].F,
 		}
+	},
+	"label_join": func(f FunctionArgs) promql.Sample {
+		// This is specifically handled by functionOperator Series()
+		return promql.Sample{}
 	},
 	"present_over_time": func(f FunctionArgs) promql.Sample {
 		if len(f.Samples) == 0 {

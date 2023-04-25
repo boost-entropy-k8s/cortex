@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/prometheus/model/timestamp"
 	"github.com/prometheus/prometheus/promql"
 
-	"github.com/thanos-community/promql-engine/internal/prometheus/parser"
+	"github.com/thanos-community/promql-engine/parser"
 )
 
 var (
@@ -225,8 +225,12 @@ func preprocessExprHelper(expr parser.Expr, start, end time.Time) bool {
 	case *parser.UnaryExpr:
 		return preprocessExprHelper(n.Expr, start, end)
 
-	case *parser.StringLiteral, *parser.NumberLiteral:
+	case *parser.NumberLiteral:
 		return true
+	case *parser.StringLiteral:
+		// strings should be used as fixed strings; no need
+		// to wrap under stepInvariantExpr
+		return false
 	}
 
 	panic(fmt.Sprintf("found unexpected node %#v", expr))
