@@ -17,6 +17,7 @@
 * [BUGFIX] Querier: Convert gRPC `ResourceExhausted` status code from store gateway to 422 limit error. #5286
 * [BUGFIX] Alertmanager: Route web-ui requests to the alertmanager distributor when sharding is enabled. #5293
 * [BUGFIX] Storage: Bucket index updater should ignore meta not found for partial blocks. #5343
+* [BUGFIX] Ring: Add JOINING state to read operation. #5346
 
 ## 1.15.1 2023-04-26
 
