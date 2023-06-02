@@ -1,6 +1,11 @@
 # Changelog
 
 ## master / unreleased
+* [CHANGE] Updating prometheus/alertmanager from v0.25.0 to v0.25.1-0.20230505130626-263ca5c9438e. This includes the below changes. #5276
+  - Validating new fields on the Webhook AM config, PushOver AM Config and Telegram AM Config.
+  - filtering 5xx Errors in numTotalFailedNotifications metric.
+  - Delete silence respond with 404 when silence is not found.
+  - mark webhook URL as a secret.
 * [CHANGE] Ruler: Added user label to `cortex_ruler_write_requests_total`, `cortex_ruler_write_requests_failed_total`, `cortex_ruler_queries_total`, and `cortex_ruler_queries_failed_total` metrics. #5312
 * [CHANGE] Alertmanager: Validating new fields on the PagerDuty AM config. #5290
 * [CHANGE] Ingester: Creating label `native-histogram-sample` on the `cortex_discarded_samples_total` to keep track of discarded native histogram samples. #5289
@@ -14,6 +19,7 @@
 * [ENHANCEMENT] Update Go version to 1.20.4. #5299
 * [ENHANCEMENT] Log: Avoid expensive log.Valuer evaluation for disallowed levels. #5297
 * [ENHANCEMENT] Improving Performance on the API Gzip Handler. #5347
+* [ENHANCEMENT] Emit querier `max_concurrent` as a metric. #5362
 * [BUGFIX] Ruler: Validate if rule group can be safely converted back to rule group yaml from protobuf message #5265
 * [BUGFIX] Querier: Convert gRPC `ResourceExhausted` status code from store gateway to 422 limit error. #5286
 * [BUGFIX] Alertmanager: Route web-ui requests to the alertmanager distributor when sharding is enabled. #5293
