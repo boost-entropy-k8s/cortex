@@ -11,6 +11,7 @@
 * [CHANGE] Ruler: Added user label to `cortex_ruler_write_requests_total`, `cortex_ruler_write_requests_failed_total`, `cortex_ruler_queries_total`, and `cortex_ruler_queries_failed_total` metrics. #5312
 * [CHANGE] Alertmanager: Validating new fields on the PagerDuty AM config. #5290
 * [CHANGE] Ingester: Creating label `native-histogram-sample` on the `cortex_discarded_samples_total` to keep track of discarded native histogram samples. #5289
+* [CHANGE] Store Gateway: Rename `cortex_bucket_store_cached_postings_compression_time_seconds` to `cortex_bucket_store_cached_postings_compression_time_seconds_total`. #5431
 * [FEATURE] Store Gateway: Add `max_downloaded_bytes_per_request` to limit max bytes to download per store gateway request.
 * [FEATURE] Added 2 flags `-alertmanager.alertmanager-client.grpc-max-send-msg-size` and ` -alertmanager.alertmanager-client.grpc-max-recv-msg-size` to configure alert manager grpc client message size limits. #5338
 * [FEATURE] Query Frontend: Add `cortex_rejected_queries_total` metric for throttled queries. #5356
@@ -18,6 +19,7 @@
 * [FEATURE] Querier/StoreGateway: Allow the tenant shard sizes to be a percent of total instances. #5393
 * [FEATURE] Added the flag `-alertmanager.api-concurrency` to configure alert manager api concurrency limit. #5412
 * [FEATURE] Store Gateway: Add `-store-gateway.sharding-ring.keep-instance-in-the-ring-on-shutdown` to skip unregistering instance from the ring in shutdown. #5421
+* [FEATURE] Ruler: Support for filtering rules in the API. #5417
 * [ENHANCEMENT] Distributor/Ingester: Add span on push path #5319
 * [ENHANCEMENT] Support object storage backends for runtime configuration file. #5292
 * [ENHANCEMENT] Query Frontend: Reject subquery with too small step size. #5323
@@ -42,6 +44,7 @@
 * [BUGFIX] Ring: Allow RF greater than number of zones to select more than one instance per zone #5411
 * [BUGFIX] Distributor: Fix potential data corruption in cases of timeout between distributors and ingesters. #5422
 * [BUGFIX] Store Gateway: Fix bug in store gateway ring comparison logic. #5426
+* [BUGFIX] Ring: Fix bug in consistency of Get func in a scaling zone-aware ring. #5429
 
 ## 1.15.1 2023-04-26
 
