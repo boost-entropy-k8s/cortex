@@ -1942,6 +1942,11 @@ sharding_ring:
   # CLI flag: -compactor.ring.instance-interface-names
   [instance_interface_names: <list of string> | default = [eth0 en0]]
 
+  # File path where tokens are stored. If empty, tokens are not stored at
+  # shutdown and restored at startup.
+  # CLI flag: -compactor.ring.tokens-file-path
+  [tokens_file_path: <string> | default = ""]
+
   # Timeout for waiting on compactor to become ACTIVE in the ring.
   # CLI flag: -compactor.ring.wait-active-instance-timeout
   [wait_active_instance_timeout: <duration> | default = 10m]
@@ -2190,6 +2195,11 @@ ha_tracker:
 # ingesters during rolling restarts with consistent naming.
 # CLI flag: -distributor.extend-writes
 [extend_writes: <boolean> | default = true]
+
+# EXPERIMENTAL: If enabled, sign the write request between distributors and
+# ingesters.
+# CLI flag: -distributor.sign-write-requests
+[sign_write_requests: <boolean> | default = false]
 
 ring:
   kvstore:
