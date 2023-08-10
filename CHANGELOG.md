@@ -26,6 +26,7 @@
 * [FEATURE] Store Gateway: Add `-store-gateway.sharding-ring.keep-instance-in-the-ring-on-shutdown` to skip unregistering instance from the ring in shutdown. #5421
 * [FEATURE] Ruler: Support for filtering rules in the API. #5417
 * [FEATURE] Compactor: Add `-compactor.ring.tokens-file-path` to store generated tokens locally. #5432
+* [FEATURE] Query Frontend: Add `-frontend.retry-on-too-many-outstanding-requests` to re-enqueue 429 requests if there are multiple query-schedulers available. #5496
 * [ENHANCEMENT] Distributor/Ingester: Add span on push path #5319
 * [ENHANCEMENT] Support object storage backends for runtime configuration file. #5292
 * [ENHANCEMENT] Query Frontend: Reject subquery with too small step size. #5323
@@ -46,6 +47,7 @@
 * [ENHANCEMENT] Alertmanager: Add the alert name in error log when it get throttled. #5456
 * [ENHANCEMENT] Querier: Retry store gateway on different zones when zone awareness is enabled. #5476
 * [ENHANCEMENT] DDBKV: Change metric name from dynamodb_kv_read_capacity_total to dynamodb_kv_consumed_capacity_total and include Delete, Put, Batch dimension. #5481
+* [ENHANCEMENT] Compactor: allow unregisteronshutdown to be configurable. #5503
 * [BUGFIX] Ruler: Validate if rule group can be safely converted back to rule group yaml from protobuf message #5265
 * [BUGFIX] Querier: Convert gRPC `ResourceExhausted` status code from store gateway to 422 limit error. #5286
 * [BUGFIX] Alertmanager: Route web-ui requests to the alertmanager distributor when sharding is enabled. #5293
