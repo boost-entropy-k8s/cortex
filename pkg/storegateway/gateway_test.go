@@ -314,7 +314,7 @@ func TestStoreGateway_InitialSyncWithWaitRingStability(t *testing.T) {
 				//parallel testing causes data race
 				// Randomise the seed but log it in case we need to reproduce the test on failure.
 				seed := time.Now().UnixNano()
-				rand.Seed(seed)
+				rand.New(rand.NewSource(seed))
 				t.Log("random generator seed:", seed)
 
 				ctx := context.Background()
@@ -419,7 +419,7 @@ func TestStoreGateway_BlocksSyncWithDefaultSharding_RingTopologyChangedAfterScal
 
 	// Randomise the seed but log it in case we need to reproduce the test on failure.
 	seed := time.Now().UnixNano()
-	rand.Seed(seed)
+	rand.New(rand.NewSource(seed))
 	t.Log("random generator seed:", seed)
 
 	ctx := context.Background()
@@ -929,11 +929,11 @@ func TestStoreGateway_SeriesQueryingShouldRemoveExternalLabels(t *testing.T) {
 
 	// Inject different external labels for each block.
 	for idx, blockID := range blockIDs {
+		metaLabels := make(map[string]string)
+		metaLabels[cortex_tsdb.TenantIDExternalLabel] = userID
+		metaLabels[cortex_tsdb.IngesterIDExternalLabel] = fmt.Sprintf("ingester-%d", idx)
 		meta := metadata.Thanos{
-			Labels: map[string]string{
-				cortex_tsdb.TenantIDExternalLabel:   userID,
-				cortex_tsdb.IngesterIDExternalLabel: fmt.Sprintf("ingester-%d", idx),
-			},
+			Labels: metaLabels,
 			Source: metadata.TestSource,
 		}
 
