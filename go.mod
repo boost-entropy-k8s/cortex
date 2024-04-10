@@ -52,8 +52,8 @@ require (
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.9.0
 	github.com/thanos-io/objstore v0.0.0-20240309075357-e8336a5fd5f3
-	github.com/thanos-io/promql-engine v0.0.0-20240327143517-c5e4b2e6ef02
-	github.com/thanos-io/thanos v0.34.2-0.20240328185924-943401f726ed
+	github.com/thanos-io/promql-engine v0.0.0-20240405095051-b7d0da367508
+	github.com/thanos-io/thanos v0.34.2-0.20240409164351-953ce26ad746
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/weaveworks/common v0.0.0-20230728070032-dd9e68f319d5
 	go.etcd.io/etcd/api/v3 v3.5.12
@@ -67,7 +67,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
 	go.uber.org/atomic v1.11.0
-	golang.org/x/net v0.22.0
+	golang.org/x/net v0.24.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/time v0.5.0
 	google.golang.org/grpc v1.62.1
@@ -223,10 +223,10 @@ require (
 	go.uber.org/zap v1.21.0 // indirect
 	go4.org/intern v0.0.0-20230525184215-6c62f75575cb // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
-	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.19.0 // indirect
 	gonum.org/v1/gonum v0.12.0 // indirect
