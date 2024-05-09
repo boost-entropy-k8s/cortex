@@ -3,9 +3,14 @@
 ## master / unreleased
 * [ENHANCEMENT] Query Frontend/Querier: Added store gateway postings touched count and touched size in Querier stats and log in Query Frontend. #5892
 * [ENHANCEMENT] Query Frontend/Querier: Returns `warnings` on prometheus query responses. #5916
-* [ENHANCEMENT] Ingester: Allowing to configure `-blocks-storage.tsdb.head-compaction-interval` flag up to 30 min and add a jitter on the first head compaction. #5919
+* [ENHANCEMENT] Ingester: Allowing to configure `-blocks-storage.tsdb.head-compaction-interval` flag up to 30 min and add a jitter on the first head compaction. #5919 #5928
+* [ENHANCEMENT] Distributor: Added `max_inflight_push_requests` config to ingester client to protect distributor from OOMKilled. #5917
+* [ENHANCEMENT] Distributor/Querier: Clean stale per-ingester metrics after ingester restarts. #5930
+* [ENHANCEMENT] Distributor/Ring: Allow disabling detailed ring metrics by ring member. #5931
+* [ENHANCEMENT] KV: Etcd Added etcd.ping-without-stream-allowed parameter to disable/enable  PermitWithoutStream #5933
 * [CHANGE] Upgrade Dockerfile Node version from 14x to 18x. #5906
 * [BUGFIX] Configsdb: Fix endline issue in db password. #5920
+
 
 ## 1.17.0 2024-04-30
 
