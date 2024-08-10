@@ -6,6 +6,9 @@
 * [CHANGE] Server: Instrument `cortex_request_duration_seconds` metric with native histogram. If `native-histograms` feature is enabled in monitoring Prometheus then the metric name needs to be updated in your dashboards. #6056
 * [CHANGE] Distributor/Ingester: Change `cortex_distributor_ingester_appends_total`, `cortex_distributor_ingester_append_failures_total`, `cortex_distributor_ingester_queries_total`, and `cortex_distributor_ingester_query_failures_total` metrics to use the ingester ID instead of its IP as the label value. #6078
 * [CHANGE] OTLP: Set `AddMetricSuffixes` to true to always enable metric name normalization. #6136
+* [CHANGE] Querier: Deprecate and enable by default `querier.ingester-metadata-streaming` flag. #6147
+* [CHANGE] QueryFrontend/QueryScheduler: Deprecate `-querier.max-outstanding-requests-per-tenant` and `-query-scheduler.max-outstanding-requests-per-tenant` flags. Use frontend.max-outstanding-requests-per-tenant instead. #6146
+* [CHANGE] Ingesters: Enable 'snappy-block' compression on ingester clients by default. #6148
 * [FEATURE] Ingester/Distributor: Experimental: Enable native histogram ingestion via `-blocks-storage.tsdb.enable-native-histograms` flag. #5986 #6010 #6020
 * [FEATURE] Querier: Enable querying native histogram chunks. #5944 #6031
 * [FEATURE] Query Frontend: Support native histogram in query frontend response. #5996 #6043
@@ -40,6 +43,7 @@
 * [ENHANCEMENT] Ruler: Add support for filtering by `state` and `health` field on Rules API. #6040
 * [ENHANCEMENT] Compactor: Split cleaner cycle for active and deleted tenants. #6112
 * [ENHANCEMENT] Compactor: Introduce cleaner visit marker. #6113
+* [ENHANCEMENT] Query Frontend: Add cortex_query_samples_total metric. #6142
 * [BUGFIX] Configsdb: Fix endline issue in db password. #5920
 * [BUGFIX] Ingester: Fix `user` and `type` labels for the `cortex_ingester_tsdb_head_samples_appended_total` TSDB metric. #5952
 * [BUGFIX] Querier: Enforce max query length check for `/api/v1/series` API even though `ignoreMaxQueryLength` is set to true. #6018
