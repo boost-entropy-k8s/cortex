@@ -82,17 +82,12 @@ func defaultRulerConfig(t testing.TB) Config {
 }
 
 type ruleLimits struct {
-	evalDelay            time.Duration
 	tenantShard          int
 	maxRulesPerRuleGroup int
 	maxRuleGroups        int
 	disabledRuleGroups   validation.DisabledRuleGroups
 	maxQueryLength       time.Duration
 	queryOffset          time.Duration
-}
-
-func (r ruleLimits) EvaluationDelay(_ string) time.Duration {
-	return r.evalDelay
 }
 
 func (r ruleLimits) RulerTenantShardSize(_ string) int {
@@ -178,7 +173,7 @@ func testSetup(t *testing.T, querierTestConfig *querier.TestConfig) (*promql.Eng
 	reg := prometheus.NewRegistry()
 	queryable := testQueryableFunc(querierTestConfig, reg, l)
 
-	return engine, queryable, pusher, l, ruleLimits{evalDelay: 0, maxRuleGroups: 20, maxRulesPerRuleGroup: 15}, reg
+	return engine, queryable, pusher, l, ruleLimits{maxRuleGroups: 20, maxRulesPerRuleGroup: 15}, reg
 }
 
 func newManager(t *testing.T, cfg Config) *DefaultMultiTenantManager {
@@ -252,10 +247,23 @@ func buildRuler(t *testing.T, rulerConfig Config, querierTestConfig *querier.Tes
 func newTestRuler(t *testing.T, rulerConfig Config, store rulestore.RuleStore, querierTestConfig *querier.TestConfig) *Ruler {
 	ruler, _ := buildRuler(t, rulerConfig, querierTestConfig, store, nil)
 	require.NoError(t, services.StartAndAwaitRunning(context.Background(), ruler))
+	rgs, err := store.ListAllRuleGroups(context.Background())
+	require.NoError(t, err)
 
-	// Ensure all rules are loaded before usage
-	ruler.syncRules(context.Background(), rulerSyncReasonInitial)
-
+	// Wait to ensure syncRules has finished and all rules are loaded before usage
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		loaded := true
+		for tenantId := range rgs {
+			if len(ruler.manager.GetRules(tenantId)) == 0 {
+				loaded = false
+			}
+		}
+		if time.Now().After(deadline) || loaded {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 	return ruler
 }
 
@@ -538,32 +546,32 @@ func TestGetRules(t *testing.T) {
 	expectedRules := expectedRulesMap{
 		"ruler1": map[string]rulespb.RuleGroupList{
 			"user1": {
-				&rulespb.RuleGroupDesc{User: "user1", Namespace: "namespace", Name: "first", Interval: 10 * time.Second, Rules: ruleMap["ruler1-user1-rule-group1"]},
-				&rulespb.RuleGroupDesc{User: "user1", Namespace: "namespace", Name: "second", Interval: 10 * time.Second, Rules: ruleMap["ruler1-user1-rule-group2"]},
+				&rulespb.RuleGroupDesc{User: "user1", Namespace: "namespace", Name: "first", Interval: 10 * time.Minute, Rules: ruleMap["ruler1-user1-rule-group1"]},
+				&rulespb.RuleGroupDesc{User: "user1", Namespace: "namespace", Name: "second", Interval: 10 * time.Minute, Rules: ruleMap["ruler1-user1-rule-group2"]},
 			},
 			"user2": {
-				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "third", Interval: 10 * time.Second, Rules: ruleMap["ruler1-user2-rule-group1"]},
+				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "third", Interval: 10 * time.Minute, Rules: ruleMap["ruler1-user2-rule-group1"]},
 			},
 		},
 		"ruler2": map[string]rulespb.RuleGroupList{
 			"user1": {
-				&rulespb.RuleGroupDesc{User: "user1", Namespace: "namespace", Name: "third", Interval: 10 * time.Second, Rules: ruleMap["ruler2-user1-rule-group3"]},
+				&rulespb.RuleGroupDesc{User: "user1", Namespace: "namespace", Name: "third", Interval: 10 * time.Minute, Rules: ruleMap["ruler2-user1-rule-group3"]},
 			},
 			"user2": {
-				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "first", Interval: 10 * time.Second, Rules: ruleMap["ruler2-user2-rule-group1"]},
-				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "second", Interval: 10 * time.Second, Rules: ruleMap["ruler2-user2-rule-group2"]},
+				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "first", Interval: 10 * time.Minute, Rules: ruleMap["ruler2-user2-rule-group1"]},
+				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "second", Interval: 10 * time.Minute, Rules: ruleMap["ruler2-user2-rule-group2"]},
 			},
 			"user3": {
-				&rulespb.RuleGroupDesc{User: "user3", Namespace: "latency-test", Name: "first", Interval: 10 * time.Second, Rules: ruleMap["ruler2-user3-rule-group1"]},
+				&rulespb.RuleGroupDesc{User: "user3", Namespace: "latency-test", Name: "first", Interval: 10 * time.Minute, Rules: ruleMap["ruler2-user3-rule-group1"]},
 			},
 		},
 		"ruler3": map[string]rulespb.RuleGroupList{
 			"user3": {
-				&rulespb.RuleGroupDesc{User: "user3", Namespace: "namespace", Name: "third", Interval: 10 * time.Second, Rules: ruleMap["ruler3-user3-rule-group1"]},
+				&rulespb.RuleGroupDesc{User: "user3", Namespace: "namespace", Name: "third", Interval: 10 * time.Minute, Rules: ruleMap["ruler3-user3-rule-group1"]},
 			},
 			"user2": {
-				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "forth", Interval: 10 * time.Second, Rules: ruleMap["ruler3-user2-rule-group1"]},
-				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "fifty", Interval: 10 * time.Second, Rules: ruleMap["ruler3-user2-rule-group2"]},
+				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "forth", Interval: 10 * time.Minute, Rules: ruleMap["ruler3-user2-rule-group1"]},
+				&rulespb.RuleGroupDesc{User: "user2", Namespace: "namespace", Name: "fifty", Interval: 10 * time.Minute, Rules: ruleMap["ruler3-user2-rule-group2"]},
 			},
 		},
 	}
@@ -971,7 +979,7 @@ func TestGetRules(t *testing.T) {
 				}
 
 				r, _ := buildRuler(t, cfg, nil, store, rulerAddrMap)
-				r.limits = ruleLimits{evalDelay: 0, tenantShard: tc.shuffleShardSize}
+				r.limits = ruleLimits{tenantShard: tc.shuffleShardSize}
 				rulerAddrMap[id] = r
 				if r.ring != nil {
 					require.NoError(t, services.StartAndAwaitRunning(context.Background(), r.ring))
@@ -1208,7 +1216,7 @@ func TestGetRulesFromBackup(t *testing.T) {
 		}
 
 		r, _ := buildRuler(t, cfg, nil, store, rulerAddrMap)
-		r.limits = ruleLimits{evalDelay: 0, tenantShard: 3}
+		r.limits = ruleLimits{tenantShard: 3}
 		rulerAddrMap[id] = r
 		if r.ring != nil {
 			require.NoError(t, services.StartAndAwaitRunning(context.Background(), r.ring))
@@ -1792,7 +1800,7 @@ func TestSharding(t *testing.T) {
 				}
 
 				r, _ := buildRuler(t, cfg, nil, store, nil)
-				r.limits = ruleLimits{evalDelay: 0, tenantShard: tc.shuffleShardSize}
+				r.limits = ruleLimits{tenantShard: tc.shuffleShardSize}
 
 				if forceRing != nil {
 					r.ring = forceRing
@@ -1941,7 +1949,7 @@ func Test_LoadPartialGroups(t *testing.T) {
 	}
 
 	r1, manager := buildRuler(t, cfg, nil, store, nil)
-	r1.limits = ruleLimits{evalDelay: 0, tenantShard: 1}
+	r1.limits = ruleLimits{tenantShard: 1}
 
 	require.NoError(t, services.StartAndAwaitRunning(context.Background(), r1))
 	t.Cleanup(r1.StopAsync)
@@ -2465,7 +2473,7 @@ func TestRulerDisablesRuleGroups(t *testing.T) {
 				}
 
 				r, _ := buildRuler(t, cfg, nil, store, nil)
-				r.limits = ruleLimits{evalDelay: 0, tenantShard: 3, disabledRuleGroups: tc.disabledRuleGroups}
+				r.limits = ruleLimits{tenantShard: 3, disabledRuleGroups: tc.disabledRuleGroups}
 
 				if forceRing != nil {
 					r.ring = forceRing

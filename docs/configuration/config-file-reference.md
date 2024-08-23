@@ -2216,6 +2216,10 @@ sharding_ring:
   # CLI flag: -compactor.ring.wait-active-instance-timeout
   [wait_active_instance_timeout: <duration> | default = 10m]
 
+# The compaction strategy to use. Supported values are: default, partitioning.
+# CLI flag: -compactor.compaction-mode
+[compaction_mode: <string> | default = "default"]
+
 # How long block visit marker file should be considered as expired and able to
 # be picked up by compactor again.
 # CLI flag: -compactor.block-visit-marker-timeout
@@ -3333,6 +3337,7 @@ query_rejection:
   # them.
   [query_attributes: <list of QueryAttribute> | default = []]
 
+# Deprecated(use ruler.query-offset instead) and will be removed in v1.19.0:
 # Duration to delay the evaluation of rules to ensure the underlying metrics
 # have been pushed to Cortex.
 # CLI flag: -ruler.evaluation-delay-duration

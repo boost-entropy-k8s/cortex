@@ -1,6 +1,11 @@
 # Changelog
 
 ## master / unreleased
+
+* [ENHANCEMENT] Ruler: Add new ruler metric `cortex_ruler_rule_groups_in_store` that is the total rule groups per tenant in store, which can be used to compare with `cortex_prometheus_rule_group_rules` to count the number of rule groups that are not loaded by a ruler. #5869
+
+## 1.18.0 in progress
+
 * [CHANGE] Upgrade Dockerfile Node version from 14x to 18x. #5906
 * [CHANGE] Ingester: Remove `-querier.query-store-for-labels-enabled` flag. Querying long-term store for labels is always enabled. #5984
 * [CHANGE] Server: Instrument `cortex_request_duration_seconds` metric with native histogram. If `native-histograms` feature is enabled in monitoring Prometheus then the metric name needs to be updated in your dashboards. #6056
@@ -9,6 +14,10 @@
 * [CHANGE] Querier: Deprecate and enable by default `querier.ingester-metadata-streaming` flag. #6147
 * [CHANGE] QueryFrontend/QueryScheduler: Deprecate `-querier.max-outstanding-requests-per-tenant` and `-query-scheduler.max-outstanding-requests-per-tenant` flags. Use frontend.max-outstanding-requests-per-tenant instead. #6146
 * [CHANGE] Ingesters: Enable 'snappy-block' compression on ingester clients by default. #6148
+* [CHANGE] Ruler: Scheduling `ruler.evaluation-delay-duration` to be deprecated. Use the highest value between `ruler.evaluation-delay-duration` and `ruler.query-offset` #6149
+* [CHANGE] Querier: Remove `-querier.at-modifier-enabled` flag. #6157
+* [CHANGE] Tracing: Remove deprecated `oltp_endpoint` config entirely. #6158
+* [CHANGE] Store Gateway: Enable store gateway zone stable shuffle sharding by default. #6161
 * [FEATURE] Ingester/Distributor: Experimental: Enable native histogram ingestion via `-blocks-storage.tsdb.enable-native-histograms` flag. #5986 #6010 #6020
 * [FEATURE] Querier: Enable querying native histogram chunks. #5944 #6031
 * [FEATURE] Query Frontend: Support native histogram in query frontend response. #5996 #6043
@@ -44,13 +53,15 @@
 * [ENHANCEMENT] Compactor: Split cleaner cycle for active and deleted tenants. #6112
 * [ENHANCEMENT] Compactor: Introduce cleaner visit marker. #6113
 * [ENHANCEMENT] Query Frontend: Add cortex_query_samples_total metric. #6142
+* [ENHANCEMENT] Ingester: Implement metadata API limit. #6128
 * [BUGFIX] Configsdb: Fix endline issue in db password. #5920
 * [BUGFIX] Ingester: Fix `user` and `type` labels for the `cortex_ingester_tsdb_head_samples_appended_total` TSDB metric. #5952
 * [BUGFIX] Querier: Enforce max query length check for `/api/v1/series` API even though `ignoreMaxQueryLength` is set to true. #6018
 * [BUGFIX] Ingester: Fix issue with the minimize token generator where it was not taking in consideration the current ownerhip of an instance when generating extra tokens. #6062
-* [BUGFIX] Scheduler: Fix user queue in scheduler that was not thread-safe. #6077
+* [BUGFIX] Scheduler: Fix user queue in scheduler that was not thread-safe. #6077 #6160
 * [BUGFIX] Ingester: Include out-of-order head compaction when compacting TSDB head. #6108
 * [BUGFIX] Ingester: Fix `cortex_ingester_tsdb_mmap_chunks_total` metric. #6134
+* [BUGFIX] Query Frontend: Fix query rejection bug for metadata queries. #6143
 
 ## 1.17.1 2024-05-20
 
