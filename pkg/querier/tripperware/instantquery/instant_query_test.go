@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,13 +31,13 @@ func TestRequest(t *testing.T) {
 	for _, tc := range []struct {
 		url         string
 		expectedURL string
-		expected    *PrometheusRequest
+		expected    *tripperware.PrometheusRequest
 		expectedErr error
 	}{
 		{
 			url:         "/api/v1/query?query=sum%28container_memory_rss%29+by+%28namespace%29&stats=all&time=1536673680",
 			expectedURL: "/api/v1/query?query=sum%28container_memory_rss%29+by+%28namespace%29&stats=all&time=1536673680",
-			expected: &PrometheusRequest{
+			expected: &tripperware.PrometheusRequest{
 				Path:  "/api/v1/query",
 				Time:  1536673680 * 1e3,
 				Query: "sum(container_memory_rss) by (namespace)",
@@ -49,7 +50,7 @@ func TestRequest(t *testing.T) {
 		{
 			url:         "/api/v1/query?query=sum%28container_memory_rss%29+by+%28namespace%29&time=1536673680",
 			expectedURL: "/api/v1/query?query=sum%28container_memory_rss%29+by+%28namespace%29&time=1536673680",
-			expected: &PrometheusRequest{
+			expected: &tripperware.PrometheusRequest{
 				Path:  "/api/v1/query",
 				Time:  1536673680 * 1e3,
 				Query: "sum(container_memory_rss) by (namespace)",
@@ -62,7 +63,7 @@ func TestRequest(t *testing.T) {
 		{
 			url:         "/api/v1/query?query=sum%28container_memory_rss%29+by+%28namespace%29",
 			expectedURL: "/api/v1/query?query=sum%28container_memory_rss%29+by+%28namespace%29&time=",
-			expected: &PrometheusRequest{
+			expected: &tripperware.PrometheusRequest{
 				Path:  "/api/v1/query",
 				Time:  0,
 				Query: "sum(container_memory_rss) by (namespace)",
@@ -173,10 +174,10 @@ func TestResponse(t *testing.T) {
 			body: `{"status":"success","data":{"resultType":"string","result":[1,"foo"]}}`,
 		},
 		{
-			body: `{"status":"success","data":{"resultType":"string","result":[1,"foo"],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1536673680,5],[1536673780,5]]}}}}`,
+			body: `{"status":"success","data":{"resultType":"string","result":[1,"foo"],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1536673680,5],[1536673780,5]],"peakSamples":10}}}}`,
 		},
 		{
-			body: `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"foo":"bar"},"values":[[1,"137"],[2,"137"]]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1536673680,5],[1536673780,5]]}}}}`,
+			body: `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"foo":"bar"},"values":[[1,"137"],[2,"137"]]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1536673680,5],[1536673780,5]],"peakSamples":10}}}}`,
 		},
 		{
 			body: `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"foo":"bar"},"values":[[1,"137"],[2,"137"]]}]}}`,
@@ -219,7 +220,7 @@ func TestResponse(t *testing.T) {
 
 func TestMergeResponse(t *testing.T) {
 	t.Parallel()
-	defaultReq := &PrometheusRequest{
+	defaultReq := &tripperware.PrometheusRequest{
 		Query: "sum(up)",
 	}
 	for _, tc := range []struct {
@@ -241,8 +242,8 @@ func TestMergeResponse(t *testing.T) {
 		{
 			name:         "empty response with stats",
 			req:          defaultReq,
-			resps:        []string{`{"status":"success","data":{"resultType":"vector","result":[],"stats":{"samples":{"totalQueryableSamples":0,"totalQueryableSamplesPerStep":[]}}}}`},
-			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[],"stats":{"samples":{"totalQueryableSamples":0,"totalQueryableSamplesPerStep":[]}}}}`,
+			resps:        []string{`{"status":"success","data":{"resultType":"vector","result":[],"stats":{"samples":{"totalQueryableSamples":0,"totalQueryableSamplesPerStep":[],"peakSamples":0}}}}`},
+			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[],"stats":{"samples":{"totalQueryableSamples":0,"totalQueryableSamplesPerStep":[],"peakSamples":0}}}}`,
 		},
 		{
 			name:         "single response",
@@ -253,8 +254,8 @@ func TestMergeResponse(t *testing.T) {
 		{
 			name:         "single response with stats",
 			req:          defaultReq,
-			resps:        []string{`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]]}}}}`},
-			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]]}}}}`,
+			resps:        []string{`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`},
+			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`,
 		},
 		{
 			name: "duplicated response",
@@ -275,10 +276,10 @@ func TestMergeResponse(t *testing.T) {
 			name: "duplicated response with stats",
 			req:  defaultReq,
 			resps: []string{
-				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]]}}}}`,
-				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]]}}}}`,
+				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`,
+				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`,
 			},
-			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[1,20]]}}}}`,
+			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[1,20]],"peakSamples":10}}}}`,
 		},
 		{
 			name: "merge two responses",
@@ -300,7 +301,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge two responses with sort",
-			req:  &PrometheusRequest{Query: "sort(sum by (job) (up))"},
+			req:  &tripperware.PrometheusRequest{Query: "sort(sum by (job) (up))"},
 			resps: []string{
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}]}}`,
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[1,"2"]}]}}`,
@@ -309,7 +310,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge two histogram responses with sort",
-			req:  &PrometheusRequest{Query: "sort(sum by (job) (up))"},
+			req:  &tripperware.PrometheusRequest{Query: "sort(sum by (job) (up))"},
 			resps: []string{
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"histogram":[1719528871.898,{"count":"6342","sum":"43.31319875499995","buckets":[[0,"0.0013810679320049755","0.0015060652591874421","1"]]}]}]}}`,
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"histogram":[1719528880,{"count":"1","sum":"0","buckets":[[0,"0.0013810679320049755","0.0015060652591874421","1"]]}]}]}}`,
@@ -318,7 +319,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge two responses with sort_desc",
-			req:  &PrometheusRequest{Query: "sort_desc(sum by (job) (up))"},
+			req:  &tripperware.PrometheusRequest{Query: "sort_desc(sum by (job) (up))"},
 			resps: []string{
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}]}}`,
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[1,"2"]}]}}`,
@@ -327,7 +328,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge two histogram responses with sort_desc",
-			req:  &PrometheusRequest{Query: "sort_desc(sum by (job) (up))"},
+			req:  &tripperware.PrometheusRequest{Query: "sort_desc(sum by (job) (up))"},
 			resps: []string{
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"histogram":[1719528871.898,{"count":"6342","sum":"43.31319875499995","buckets":[[0,"0.0013810679320049755","0.0015060652591874421","1"]]}]}]}}`,
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"histogram":[1719528880,{"count":"1","sum":"0","buckets":[[0,"0.0013810679320049755","0.0015060652591874421","1"]]}]}]}}`,
@@ -336,7 +337,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge two responses with topk",
-			req:  &PrometheusRequest{Query: "topk(10, up) by(job)"},
+			req:  &tripperware.PrometheusRequest{Query: "topk(10, up) by(job)"},
 			resps: []string{
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}]}}`,
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[1,"2"]}]}}`,
@@ -345,7 +346,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge two histogram responses with topk",
-			req:  &PrometheusRequest{Query: "topk(10, up) by(job)"},
+			req:  &tripperware.PrometheusRequest{Query: "topk(10, up) by(job)"},
 			resps: []string{
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"histogram":[1719528871.898,{"count":"6342","sum":"43.31319875499995","buckets":[[0,"0.0013810679320049755","0.0015060652591874421","1"]]}]}]}}`,
 				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"histogram":[1719528880,{"count":"1","sum":"0","buckets":[[0,"0.0013810679320049755","0.0015060652591874421","1"]]}]}]}}`,
@@ -354,7 +355,7 @@ func TestMergeResponse(t *testing.T) {
 		},
 		{
 			name: "merge with warnings.",
-			req:  &PrometheusRequest{Query: "topk(10, up) by(job)"},
+			req:  &tripperware.PrometheusRequest{Query: "topk(10, up) by(job)"},
 			resps: []string{
 				`{"status":"success","warnings":["warning1","warning2"],"data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}]}}`,
 				`{"status":"success","warnings":["warning1","warning3"],"data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[1,"2"]}]}}`,
@@ -365,10 +366,19 @@ func TestMergeResponse(t *testing.T) {
 			name: "merge two responses with stats",
 			req:  defaultReq,
 			resps: []string{
-				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]]}}}}`,
-				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[2,"2"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]]}}}}`,
+				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`,
+				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[2,"2"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`,
 			},
-			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[2,"2"]},{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[1,20]]}}}}`,
+			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[2,"2"]},{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[1,20]],"peakSamples":10}}}}`,
+		},
+		{
+			name: "merge two responses with stats, the peak samples should be larger one among the responses",
+			req:  defaultReq,
+			resps: []string{
+				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":10}}}}`,
+				`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[2,"2"]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,10]],"peakSamples":15}}}}`,
+			},
+			expectedResp: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"bar"},"value":[2,"2"]},{"metric":{"__name__":"up","job":"foo"},"value":[1,"1"]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[1,20]],"peakSamples":15}}}}`,
 		},
 		{
 			name: "responses don't contain vector, should return an error",
@@ -377,7 +387,7 @@ func TestMergeResponse(t *testing.T) {
 				`{"status":"success","data":{"resultType":"string","result":[1662682521.409,"foo"]}}`,
 				`{"status":"success","data":{"resultType":"string","result":[1662682521.409,"foo"]}}`,
 			},
-			expectedErr: fmt.Errorf("unexpected result type on instant query: %s", "string"),
+			expectedErr: errors.New("unexpected result type: string"),
 		},
 		{
 			name: "single matrix response",
@@ -473,74 +483,8 @@ func TestMergeResponse(t *testing.T) {
 			assert.Equal(t, tc.expectedErr, err)
 			contents, err := io.ReadAll(dr.Body)
 			assert.Equal(t, tc.expectedErr, err)
-			assert.Equal(t, string(contents), tc.expectedResp)
+			assert.Equal(t, tc.expectedResp, string(contents))
 			cancelCtx()
-		})
-	}
-}
-
-func Test_sortPlanForQuery(t *testing.T) {
-	tc := []struct {
-		query        string
-		expectedPlan sortPlan
-		err          bool
-	}{
-		{
-			query:        "invalid(10, up)",
-			expectedPlan: mergeOnly,
-			err:          true,
-		},
-		{
-			query:        "topk(10, up)",
-			expectedPlan: mergeOnly,
-			err:          false,
-		},
-		{
-			query:        "bottomk(10, up)",
-			expectedPlan: mergeOnly,
-			err:          false,
-		},
-		{
-			query:        "1 + topk(10, up)",
-			expectedPlan: sortByLabels,
-			err:          false,
-		},
-		{
-			query:        "1 + sort_desc(sum by (job) (up) )",
-			expectedPlan: sortByValuesDesc,
-			err:          false,
-		},
-		{
-			query:        "sort(topk by (job) (10, up))",
-			expectedPlan: sortByValuesAsc,
-			err:          false,
-		},
-		{
-			query:        "topk(5, up) by (job) + sort_desc(up)",
-			expectedPlan: sortByValuesDesc,
-			err:          false,
-		},
-		{
-			query:        "sort(up) + topk(5, up) by (job)",
-			expectedPlan: sortByValuesAsc,
-			err:          false,
-		},
-		{
-			query:        "sum(up) by (job)",
-			expectedPlan: sortByLabels,
-			err:          false,
-		},
-	}
-
-	for _, tc := range tc {
-		t.Run(tc.query, func(t *testing.T) {
-			p, err := sortPlanForQuery(tc.query)
-			if tc.err {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedPlan, p)
-			}
 		})
 	}
 }
@@ -576,12 +520,12 @@ func Benchmark_Decode(b *testing.B) {
 		},
 	} {
 		b.Run(name, func(b *testing.B) {
-			r := PrometheusInstantQueryResponse{
-				Data: PrometheusInstantQueryData{
+			r := tripperware.PrometheusResponse{
+				Data: tripperware.PrometheusData{
 					ResultType: model.ValMatrix.String(),
-					Result: PrometheusInstantQueryResult{
-						Result: &PrometheusInstantQueryResult_Matrix{
-							Matrix: &Matrix{
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
 								SampleStreams: tc.sampleStream,
 							},
 						},

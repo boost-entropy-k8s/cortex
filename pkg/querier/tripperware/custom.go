@@ -1,4 +1,4 @@
-package instantquery
+package tripperware
 
 func (m *Sample) GetTimestampMs() int64 {
 	if m != nil {

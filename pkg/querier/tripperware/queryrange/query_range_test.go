@@ -96,7 +96,7 @@ func TestResponse(t *testing.T) {
 	rWithWarnings.Headers = respHeaders
 	for i, tc := range []struct {
 		body                  string
-		expected              *PrometheusResponse
+		expected              *tripperware.PrometheusResponse
 		expectedDecodeErr     error
 		cancelCtxBeforeDecode bool
 	}{
@@ -153,22 +153,28 @@ func TestResponseWithStats(t *testing.T) {
 	t.Parallel()
 	for i, tc := range []struct {
 		body     string
-		expected *PrometheusResponse
+		expected *tripperware.PrometheusResponse
 	}{
 		{
-			body: `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"foo":"bar"},"values":[[1536673680,"137"],[1536673780,"137"]]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1536673680,5],[1536673780,5]]}}}}`,
-			expected: &PrometheusResponse{
+			body: `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"foo":"bar"},"values":[[1536673680,"137"],[1536673780,"137"]]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1536673680,5],[1536673780,5]],"peakSamples":16}}}}`,
+			expected: &tripperware.PrometheusResponse{
 				Status: "success",
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: model.ValMatrix.String(),
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{
-								{Name: "foo", Value: "bar"},
-							},
-							Samples: []cortexpb.Sample{
-								{Value: 137, TimestampMs: 1536673680000},
-								{Value: 137, TimestampMs: 1536673780000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{
+											{Name: "foo", Value: "bar"},
+										},
+										Samples: []cortexpb.Sample{
+											{Value: 137, TimestampMs: 1536673680000},
+											{Value: 137, TimestampMs: 1536673780000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -179,6 +185,7 @@ func TestResponseWithStats(t *testing.T) {
 								{Value: 5, TimestampMs: 1536673680000},
 								{Value: 5, TimestampMs: 1536673780000},
 							},
+							PeakSamples: 16,
 						},
 					},
 				},
@@ -224,100 +231,135 @@ func TestMergeAPIResponses(t *testing.T) {
 		{
 			name:  "No responses shouldn't panic and return a non-null result and result type.",
 			input: []tripperware.Response{},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result:     []tripperware.SampleStream{},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{},
+					},
 				},
 			},
 		},
 		{
 			name: "A single empty response shouldn't panic.",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Status: StatusSuccess,
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result:     []tripperware.SampleStream{},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{},
+						},
 					},
 				},
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result:     []tripperware.SampleStream{},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{},
+					},
 				},
 			},
 		},
 		{
 			name: "Multiple empty responses shouldn't panic.",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result:     []tripperware.SampleStream{},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{},
+						},
 					},
 				},
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result:     []tripperware.SampleStream{},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{},
+						},
 					},
 				},
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result:     []tripperware.SampleStream{},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{},
+							},
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "Basic merging of two responses.",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result: []tripperware.SampleStream{
-							{
-								Labels: []cortexpb.LabelAdapter{},
-								Samples: []cortexpb.Sample{
-									{Value: 0, TimestampMs: 0},
-									{Value: 1, TimestampMs: 1},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{
+										{
+											Labels: []cortexpb.LabelAdapter{},
+											Samples: []cortexpb.Sample{
+												{Value: 0, TimestampMs: 0},
+												{Value: 1, TimestampMs: 1},
+											},
+										},
+									},
 								},
 							},
 						},
 					},
 				},
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result: []tripperware.SampleStream{
-							{
-								Labels: []cortexpb.LabelAdapter{},
-								Samples: []cortexpb.Sample{
-									{Value: 2, TimestampMs: 2},
-									{Value: 3, TimestampMs: 3},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{
+										{
+											Labels: []cortexpb.LabelAdapter{},
+											Samples: []cortexpb.Sample{
+												{Value: 2, TimestampMs: 2},
+												{Value: 3, TimestampMs: 3},
+											},
+										},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{},
-							Samples: []cortexpb.Sample{
-								{Value: 0, TimestampMs: 0},
-								{Value: 1, TimestampMs: 1},
-								{Value: 2, TimestampMs: 2},
-								{Value: 3, TimestampMs: 3},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{},
+										Samples: []cortexpb.Sample{
+											{Value: 0, TimestampMs: 0},
+											{Value: 1, TimestampMs: 1},
+											{Value: 2, TimestampMs: 2},
+											{Value: 3, TimestampMs: 3},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -330,18 +372,24 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[0,"0"],[1,"1"]]}]}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"]]}]}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 0, TimestampMs: 0},
-								{Value: 1, TimestampMs: 1000},
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 0, TimestampMs: 0},
+											{Value: 1, TimestampMs: 1000},
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -354,17 +402,23 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"],[2,"2"]]}]}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"]]}]}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 1, TimestampMs: 1000},
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 1, TimestampMs: 1000},
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -377,19 +431,25 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"],[2,"2"],[3,"3"]]}]}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"],[4,"4"],[5,"5"]]}]}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 1, TimestampMs: 1000},
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
-								{Value: 4, TimestampMs: 4000},
-								{Value: 5, TimestampMs: 5000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 1, TimestampMs: 1000},
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+											{Value: 4, TimestampMs: 4000},
+											{Value: 5, TimestampMs: 5000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -402,16 +462,22 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","warnings":["warning1","warning2"],"data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"]]}]}}`),
 				mustParse(t, `{"status":"success","warnings":["warning1","warning3"],"data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"]]}]}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status:   StatusSuccess,
 				Warnings: []string{"warning1", "warning2", "warning3"},
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 1, TimestampMs: 1000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 1, TimestampMs: 1000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -424,18 +490,24 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[2,"2"],[3,"3"]]}]}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"],[4,"4"],[5,"5"]]}]}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
-								{Value: 4, TimestampMs: 4000},
-								{Value: 5, TimestampMs: 5000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+											{Value: 4, TimestampMs: 4000},
+											{Value: 5, TimestampMs: 5000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -445,29 +517,41 @@ func TestMergeAPIResponses(t *testing.T) {
 		{
 			name: "Context cancel should cancel merge",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result: []tripperware.SampleStream{
-							{
-								Labels: []cortexpb.LabelAdapter{},
-								Samples: []cortexpb.Sample{
-									{Value: 0, TimestampMs: 0},
-									{Value: 1, TimestampMs: 1},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{
+										{
+											Labels: []cortexpb.LabelAdapter{},
+											Samples: []cortexpb.Sample{
+												{Value: 0, TimestampMs: 0},
+												{Value: 1, TimestampMs: 1},
+											},
+										},
+									},
 								},
 							},
 						},
 					},
 				},
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result: []tripperware.SampleStream{
-							{
-								Labels: []cortexpb.LabelAdapter{},
-								Samples: []cortexpb.Sample{
-									{Value: 2, TimestampMs: 2},
-									{Value: 3, TimestampMs: 3},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{
+										{
+											Labels: []cortexpb.LabelAdapter{},
+											Samples: []cortexpb.Sample{
+												{Value: 2, TimestampMs: 2},
+												{Value: 3, TimestampMs: 3},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -480,62 +564,91 @@ func TestMergeAPIResponses(t *testing.T) {
 		{
 			name: "[stats] A single empty response shouldn't panic.",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Status: StatusSuccess,
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result:     []tripperware.SampleStream{},
-						Stats:      &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{},
+						},
+						Stats: &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
 					},
 				},
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result:     []tripperware.SampleStream{},
-					Stats:      &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{},
+					},
+					Stats: &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
 				},
 			},
 		},
 		{
 			name: "[stats] Multiple empty responses shouldn't panic.",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result:     []tripperware.SampleStream{},
-						Stats:      &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{},
+								},
+							},
+						},
+						Stats: &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
 					},
 				},
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result:     []tripperware.SampleStream{},
-						Stats:      &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{},
+								},
+							},
+						},
+						Stats: &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
 					},
 				},
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result:     []tripperware.SampleStream{},
-					Stats:      &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{},
+							},
+						},
+					},
+					Stats: &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{}},
 				},
 			},
 		},
 		{
 			name: "[stats] Basic merging of two responses.",
 			input: []tripperware.Response{
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result: []tripperware.SampleStream{
-							{
-								Labels: []cortexpb.LabelAdapter{},
-								Samples: []cortexpb.Sample{
-									{Value: 0, TimestampMs: 0},
-									{Value: 1, TimestampMs: 1},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{
+										{
+											Labels: []cortexpb.LabelAdapter{},
+											Samples: []cortexpb.Sample{
+												{Value: 0, TimestampMs: 0},
+												{Value: 1, TimestampMs: 1},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -548,15 +661,21 @@ func TestMergeAPIResponses(t *testing.T) {
 						}},
 					},
 				},
-				&PrometheusResponse{
-					Data: PrometheusData{
+				&tripperware.PrometheusResponse{
+					Data: tripperware.PrometheusData{
 						ResultType: matrix,
-						Result: []tripperware.SampleStream{
-							{
-								Labels: []cortexpb.LabelAdapter{},
-								Samples: []cortexpb.Sample{
-									{Value: 2, TimestampMs: 2},
-									{Value: 3, TimestampMs: 3},
+						Result: tripperware.PrometheusQueryResult{
+							Result: &tripperware.PrometheusQueryResult_Matrix{
+								Matrix: &tripperware.Matrix{
+									SampleStreams: []tripperware.SampleStream{
+										{
+											Labels: []cortexpb.LabelAdapter{},
+											Samples: []cortexpb.Sample{
+												{Value: 2, TimestampMs: 2},
+												{Value: 3, TimestampMs: 3},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -570,18 +689,24 @@ func TestMergeAPIResponses(t *testing.T) {
 					},
 				},
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{},
-							Samples: []cortexpb.Sample{
-								{Value: 0, TimestampMs: 0},
-								{Value: 1, TimestampMs: 1},
-								{Value: 2, TimestampMs: 2},
-								{Value: 3, TimestampMs: 3},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{},
+										Samples: []cortexpb.Sample{
+											{Value: 0, TimestampMs: 0},
+											{Value: 1, TimestampMs: 1},
+											{Value: 2, TimestampMs: 2},
+											{Value: 3, TimestampMs: 3},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -603,17 +728,23 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"],[2,"2"]]}],"stats":{"samples":{"totalQueryableSamples":10,"totalQueryableSamplesPerStep":[[1,5],[2,5]]}}}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[2,"2"],[3,"3"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,5],[3,15]]}}}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 1, TimestampMs: 1000},
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 1, TimestampMs: 1000},
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -635,21 +766,27 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"],[2,"2"],[3,"3"],[4,"4"]]}],"stats":{"samples":{"totalQueryableSamples":6,"totalQueryableSamplesPerStep":[[1,1],[2,2],[3,3],[4,4]]}}}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[5,"5"],[6,"6"],[7,"7"]]}],"stats":{"samples":{"totalQueryableSamples":18,"totalQueryableSamplesPerStep":[[5,5],[6,6],[7,7]]}}}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 1, TimestampMs: 1000},
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
-								{Value: 4, TimestampMs: 4000},
-								{Value: 5, TimestampMs: 5000},
-								{Value: 6, TimestampMs: 6000},
-								{Value: 7, TimestampMs: 7000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 1, TimestampMs: 1000},
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+											{Value: 4, TimestampMs: 4000},
+											{Value: 5, TimestampMs: 5000},
+											{Value: 6, TimestampMs: 6000},
+											{Value: 7, TimestampMs: 7000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -674,19 +811,25 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[1,"1"],[2,"2"],[3,"3"]]}],"stats":{"samples":{"totalQueryableSamples":6,"totalQueryableSamplesPerStep":[[1,1],[2,2],[3,3]]}}}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"],[4,"4"],[5,"5"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3],[4,4],[5,5]]}}}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 1, TimestampMs: 1000},
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
-								{Value: 4, TimestampMs: 4000},
-								{Value: 5, TimestampMs: 5000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 1, TimestampMs: 1000},
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+											{Value: 4, TimestampMs: 4000},
+											{Value: 5, TimestampMs: 5000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -709,18 +852,24 @@ func TestMergeAPIResponses(t *testing.T) {
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[2,"2"],[3,"3"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3]]}}}}`),
 				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"],[4,"4"],[5,"5"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3],[4,4],[5,5]]}}}}`),
 			},
-			expected: &PrometheusResponse{
+			expected: &tripperware.PrometheusResponse{
 				Status: StatusSuccess,
-				Data: PrometheusData{
+				Data: tripperware.PrometheusData{
 					ResultType: matrix,
-					Result: []tripperware.SampleStream{
-						{
-							Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
-							Samples: []cortexpb.Sample{
-								{Value: 2, TimestampMs: 2000},
-								{Value: 3, TimestampMs: 3000},
-								{Value: 4, TimestampMs: 4000},
-								{Value: 5, TimestampMs: 5000},
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+											{Value: 4, TimestampMs: 4000},
+											{Value: 5, TimestampMs: 5000},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -732,6 +881,54 @@ func TestMergeAPIResponses(t *testing.T) {
 							{Value: 4, TimestampMs: 4000},
 							{Value: 5, TimestampMs: 5000},
 						},
+					}},
+				},
+			},
+		}, {
+			name: "[stats] Peak samples should be the largest one among the responses",
+			input: []tripperware.Response{
+				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[2,"2"],[3,"3"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3]],"peakSamples":20}}}}`),
+				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[2,"2"],[3,"3"],[4,"4"],[5,"5"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3],[4,4],[5,5]],"peakSamples":22}}}}`),
+				mustParse(t, `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"c":"d","a":"b"},"values":[[6,"6"],[7,"7"],[8,"8"],[9,"9"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[6,6],[7,7],[8,8],[9,9]],"peakSamples":25}}}}`),
+			},
+			expected: &tripperware.PrometheusResponse{
+				Status: StatusSuccess,
+				Data: tripperware.PrometheusData{
+					ResultType: matrix,
+					Result: tripperware.PrometheusQueryResult{
+						Result: &tripperware.PrometheusQueryResult_Matrix{
+							Matrix: &tripperware.Matrix{
+								SampleStreams: []tripperware.SampleStream{
+									{
+										Labels: []cortexpb.LabelAdapter{{Name: "a", Value: "b"}, {Name: "c", Value: "d"}},
+										Samples: []cortexpb.Sample{
+											{Value: 2, TimestampMs: 2000},
+											{Value: 3, TimestampMs: 3000},
+											{Value: 4, TimestampMs: 4000},
+											{Value: 5, TimestampMs: 5000},
+											{Value: 6, TimestampMs: 6000},
+											{Value: 7, TimestampMs: 7000},
+											{Value: 8, TimestampMs: 8000},
+											{Value: 9, TimestampMs: 9000},
+										},
+									},
+								},
+							},
+						},
+					},
+					Stats: &tripperware.PrometheusResponseStats{Samples: &tripperware.PrometheusResponseSamplesStats{
+						TotalQueryableSamples: 44,
+						TotalQueryableSamplesPerStep: []*tripperware.PrometheusResponseQueryableSamplesStatsPerStep{
+							{Value: 2, TimestampMs: 2000},
+							{Value: 3, TimestampMs: 3000},
+							{Value: 4, TimestampMs: 4000},
+							{Value: 5, TimestampMs: 5000},
+							{Value: 6, TimestampMs: 6000},
+							{Value: 7, TimestampMs: 7000},
+							{Value: 8, TimestampMs: 8000},
+							{Value: 9, TimestampMs: 9000},
+						},
+						PeakSamples: 25,
 					}},
 				},
 			},
@@ -763,7 +960,7 @@ func TestGzippedResponse(t *testing.T) {
 		err    error
 	}{
 		{
-			body:   `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[2,"2"],[3,"3"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3]]}}}}`,
+			body:   `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"a":"b","c":"d"},"values":[[2,"2"],[3,"3"]]}],"stats":{"samples":{"totalQueryableSamples":20,"totalQueryableSamplesPerStep":[[2,2],[3,3]],"peakSamples":10}}}}`,
 			status: 200,
 		},
 		{
@@ -815,7 +1012,7 @@ func TestGzippedResponse(t *testing.T) {
 }
 
 func mustParse(t *testing.T, response string) tripperware.Response {
-	var resp PrometheusResponse
+	var resp tripperware.PrometheusResponse
 	// Needed as goimports automatically add a json import otherwise.
 	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	require.NoError(t, json.Unmarshal([]byte(response), &resp))
