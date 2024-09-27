@@ -160,6 +160,20 @@ func (t *Cortex) initRuntimeConfig() (services.Service, error) {
 	registerer := prometheus.WrapRegistererWithPrefix("cortex_", prometheus.DefaultRegisterer)
 	logger := util_log.Logger
 	bucketClientFactory := func(ctx context.Context) (objstore.Bucket, error) {
+		// When directory is an empty string but the runtime-config.file is an absolute path,
+		// the filesystem.NewBucketClient will treat it as a relative path based on the current working directory
+		// that the process is running in.
+		if t.Cfg.RuntimeConfig.StorageConfig.Backend == bucket.Filesystem {
+			if t.Cfg.RuntimeConfig.StorageConfig.Filesystem.Directory == "" {
+				// Check if runtime-config.file is an absolute path
+				if t.Cfg.RuntimeConfig.LoadPath[0] == '/' {
+					// If it is, set the directory to the root directory so that the filesystem bucket
+					// will treat it as an absolute path. This is to maintain backwards compatibility
+					// with the previous behavior of the runtime-config.file of allowing relative and absolute paths.
+					t.Cfg.RuntimeConfig.StorageConfig.Filesystem.Directory = "/"
+				}
+			}
+		}
 		return bucket.NewClient(ctx, t.Cfg.RuntimeConfig.StorageConfig, "runtime-config", logger, registerer)
 	}
 	serv, err := runtimeconfig.New(t.Cfg.RuntimeConfig, registerer, logger, bucketClientFactory)
@@ -442,9 +456,9 @@ func (t *Cortex) initFlusher() (serv services.Service, err error) {
 func (t *Cortex) initQueryFrontendTripperware() (serv services.Service, err error) {
 	queryAnalyzer := querysharding.NewQueryAnalyzer()
 	// PrometheusCodec is a codec to encode and decode Prometheus query range requests and responses.
-	prometheusCodec := queryrange.NewPrometheusCodec(false)
+	prometheusCodec := queryrange.NewPrometheusCodec(false, t.Cfg.Querier.ResponseCompression, t.Cfg.API.QuerierDefaultCodec)
 	// ShardedPrometheusCodec is same as PrometheusCodec but to be used on the sharded queries (it sum up the stats)
-	shardedPrometheusCodec := queryrange.NewPrometheusCodec(true)
+	shardedPrometheusCodec := queryrange.NewPrometheusCodec(true, t.Cfg.Querier.ResponseCompression, t.Cfg.API.QuerierDefaultCodec)
 
 	queryRangeMiddlewares, cache, err := queryrange.Middlewares(
 		t.Cfg.QueryRange,
@@ -472,7 +486,7 @@ func (t *Cortex) initQueryFrontendTripperware() (serv services.Service, err erro
 		queryRangeMiddlewares,
 		instantQueryMiddlewares,
 		prometheusCodec,
-		instantquery.InstantQueryCodec,
+		instantquery.NewInstantQueryCodec(t.Cfg.Querier.ResponseCompression, t.Cfg.API.QuerierDefaultCodec),
 		t.Overrides,
 		queryAnalyzer,
 		t.Cfg.Querier.DefaultEvaluationInterval,
