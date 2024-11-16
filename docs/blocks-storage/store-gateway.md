@@ -711,7 +711,7 @@ blocks_storage:
 
         # The maximum number of concurrent asynchronous operations can occur.
         # CLI flag: -blocks-storage.bucket-store.index-cache.memcached.max-async-concurrency
-        [max_async_concurrency: <int> | default = 50]
+        [max_async_concurrency: <int> | default = 3]
 
         # The maximum number of enqueued asynchronous operations allowed.
         # CLI flag: -blocks-storage.bucket-store.index-cache.memcached.max-async-buffer-size
@@ -817,7 +817,7 @@ blocks_storage:
 
         # The maximum number of concurrent asynchronous operations can occur.
         # CLI flag: -blocks-storage.bucket-store.index-cache.redis.max-async-concurrency
-        [max_async_concurrency: <int> | default = 50]
+        [max_async_concurrency: <int> | default = 3]
 
         # The maximum number of enqueued asynchronous operations allowed.
         # CLI flag: -blocks-storage.bucket-store.index-cache.redis.max-async-buffer-size
@@ -951,7 +951,7 @@ blocks_storage:
 
         # The maximum number of concurrent asynchronous operations can occur.
         # CLI flag: -blocks-storage.bucket-store.chunks-cache.memcached.max-async-concurrency
-        [max_async_concurrency: <int> | default = 50]
+        [max_async_concurrency: <int> | default = 3]
 
         # The maximum number of enqueued asynchronous operations allowed.
         # CLI flag: -blocks-storage.bucket-store.chunks-cache.memcached.max-async-buffer-size
@@ -1052,7 +1052,7 @@ blocks_storage:
 
         # The maximum number of concurrent asynchronous operations can occur.
         # CLI flag: -blocks-storage.bucket-store.chunks-cache.redis.max-async-concurrency
-        [max_async_concurrency: <int> | default = 50]
+        [max_async_concurrency: <int> | default = 3]
 
         # The maximum number of enqueued asynchronous operations allowed.
         # CLI flag: -blocks-storage.bucket-store.chunks-cache.redis.max-async-buffer-size
@@ -1192,7 +1192,7 @@ blocks_storage:
 
         # The maximum number of concurrent asynchronous operations can occur.
         # CLI flag: -blocks-storage.bucket-store.metadata-cache.memcached.max-async-concurrency
-        [max_async_concurrency: <int> | default = 50]
+        [max_async_concurrency: <int> | default = 3]
 
         # The maximum number of enqueued asynchronous operations allowed.
         # CLI flag: -blocks-storage.bucket-store.metadata-cache.memcached.max-async-buffer-size
@@ -1293,7 +1293,7 @@ blocks_storage:
 
         # The maximum number of concurrent asynchronous operations can occur.
         # CLI flag: -blocks-storage.bucket-store.metadata-cache.redis.max-async-concurrency
-        [max_async_concurrency: <int> | default = 50]
+        [max_async_concurrency: <int> | default = 3]
 
         # The maximum number of enqueued asynchronous operations allowed.
         # CLI flag: -blocks-storage.bucket-store.metadata-cache.redis.max-async-buffer-size
@@ -1635,4 +1635,38 @@ blocks_storage:
     # [EXPERIMENTAL] True to enable native histogram.
     # CLI flag: -blocks-storage.tsdb.enable-native-histograms
     [enable_native_histograms: <boolean> | default = false]
+
+    # [EXPERIMENTAL] If enabled, ingesters will cache expanded postings when
+    # querying blocks. Caching can be configured separately for the head and
+    # compacted blocks.
+    expanded_postings_cache:
+      # If enabled, ingesters will cache expanded postings for the head block.
+      # Only queries with with an equal matcher for metric __name__ are cached.
+      head:
+        # Whether the postings cache is enabled or not
+        # CLI flag: -blocks-storage.expanded_postings_cache.head.enabled
+        [enabled: <boolean> | default = false]
+
+        # Max bytes for postings cache
+        # CLI flag: -blocks-storage.expanded_postings_cache.head.max-bytes
+        [max_bytes: <int> | default = 10485760]
+
+        # TTL for postings cache
+        # CLI flag: -blocks-storage.expanded_postings_cache.head.ttl
+        [ttl: <duration> | default = 10m]
+
+      # If enabled, ingesters will cache expanded postings for the compacted
+      # blocks. The cache is shared between all blocks.
+      blocks:
+        # Whether the postings cache is enabled or not
+        # CLI flag: -blocks-storage.expanded_postings_cache.block.enabled
+        [enabled: <boolean> | default = false]
+
+        # Max bytes for postings cache
+        # CLI flag: -blocks-storage.expanded_postings_cache.block.max-bytes
+        [max_bytes: <int> | default = 10485760]
+
+        # TTL for postings cache
+        # CLI flag: -blocks-storage.expanded_postings_cache.block.ttl
+        [ttl: <duration> | default = 10m]
 ```
